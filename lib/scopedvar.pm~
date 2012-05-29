@@ -1,0 +1,9 @@
+package scopedvar;
+
+use strict;
+use warnings;
+
+# use scopedvar '@foo';
+sub import {
+
+1;
