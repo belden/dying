@@ -9,36 +9,36 @@ use Test::Deep;
 use lib '../lib';
 
 {
-	use scopedvar qw(@foo %bar);
+	use antilocal qw(@foo %bar);
 
-	my $foo_ref = scopedvar('@foo');
-	my $bar_ref = scopedvar('%bar');
+	my $foo_ref = antilocal('@foo');
+	my $bar_ref = antilocal('%bar');
 
 	push @$foo_ref, qw(hello world);
 	$bar_ref->{goodnight} = 'moon';
 
-	my $another_foo = scopedvar('@foo');
-	my $another_bar = scopedvar('%bar');
+	my $another_foo = antilocal('@foo');
+	my $another_bar = antilocal('%bar');
 
 	cmp_deeply( $another_foo, [qw(hello world)] );
 	cmp_deeply( $another_bar, {goodnight => 'moon'} );
 
 	{
-		my $yet_another_foo = scopedvar('%bar');
+		my $yet_another_foo = antilocal('%bar');
 		cmp_deeply( $yet_another_foo, {goodnight => 'moon'} );
 	}
 
 	{
-		no scopedvar '%bar';
-		my $yet_another_foo = scopedvar('%bar');
+		no antilocal '%bar';
+		my $yet_another_foo = antilocal('%bar');
 		cmp_deeply( $yet_another_foo, undef );
 	}
 
 	{
-		my $yet_another_foo = scopedvar('%bar');
+		my $yet_another_foo = antilocal('%bar');
 		cmp_deeply( $yet_another_foo, {goodnight => 'moon'} );
 	}
 }
 
-# my $yet_another_foo = scopedvar('%bar');
+# my $yet_another_foo = antilocal('%bar');
 # cmp_deeply( $yet_another_foo, {goodnight => 'moon'} );
