@@ -3,15 +3,21 @@ package scopedvar;
 use strict;
 use warnings;
 
-# use scopedvar '@foo';
-# if (grep { 1 } scopedvar('@foo')) { print "saw a 1" }
+use Data::Dumper;
+
+our %vars;
+my $key = 0;
+
 sub import {
 	my ($class, @symbols) = @_;
 
+	$^H{scopedvars} = join(':', $key, map { ($_, 1) } @symbols);
+
 	foreach (@symbols) {
-		$^H{symbols}{$_} = 1;
-    $class->ready($_);
+		$vars{$key}{$_} = $class->default_for_symbol($_);
   }
+
+	$key++;
 
 	my $caller = caller;
 	no strict 'refs';
@@ -19,26 +25,22 @@ sub import {
 	*{"$caller\::scopedvar"} = \&scopedvar;
 }
 
-# no scopedvar '@foo';
-sub unimport {
-	my ($class, @symbols) = @_;
-	foreach (@symbols) {
-    # $class->unready($_);
-		delete $^H{symbols}{$_};
-  }
-}
-
-sub ready {
+sub default_for_symbol {
 	my ($class, $symbol) = @_;
-	my $hh = hinthash_for_call_level(2);
-	(my $type) = $symbol =~ m{^([@$%])};
+	(my $type) = $symbol =~ m{^([@%])};
 	CORE::die "can't figure a type for symbol: $symbol!" unless $type;
-	my $default = +{
+	return +{
 		'@' => [],
 		'%' => +{},
-		'$' => undef,
 	}->{$type};
-	$hh->{$symbol} = $default;
+}
+
+sub unimport {
+	my ($class, @symbols) = @_;
+
+	my ($key, $active) = split /:/, $^H{scopedvars}, 2;
+	$active =~ s{$_:1}{$_:0} foreach @symbols;
+	$^H{scopedvars} = join(':', $key, $active);
 }
 
 sub hinthash_for_call_level {
@@ -49,7 +51,10 @@ sub hinthash_for_call_level {
 
 sub scopedvar {
 	my ($symbol) = @_;
-	return hinthash_for_call_level(2)->{$symbol};
+	my $hh = hinthash_for_call_level(1);
+	my ($key, %active) = split /:/, $hh->{scopedvars};
+
+	return $active{$symbol} ? $vars{$key}{$symbol} : undef;
 }
 
 1;
