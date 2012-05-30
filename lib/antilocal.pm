@@ -1,4 +1,4 @@
-package scopedvar;
+package antilocal;
 
 use strict;
 use warnings;
@@ -11,7 +11,7 @@ my $key = 0;
 sub import {
 	my ($class, @symbols) = @_;
 
-	$^H{scopedvars} = join(':', $key, map { ($_, 1) } @symbols);
+	$^H{antilocals} = join(':', $key, map { ($_, 1) } @symbols);
 
 	foreach (@symbols) {
 		$vars{$key}{$_} = $class->default_for_symbol($_);
@@ -22,7 +22,7 @@ sub import {
 	my $caller = caller;
 	no strict 'refs';
 	no warnings 'redefine';
-	*{"$caller\::scopedvar"} = \&scopedvar;
+	*{"$caller\::antilocal"} = \&antilocal;
 }
 
 sub default_for_symbol {
@@ -38,9 +38,9 @@ sub default_for_symbol {
 sub unimport {
 	my ($class, @symbols) = @_;
 
-	my ($key, $active) = split /:/, $^H{scopedvars}, 2;
+	my ($key, $active) = split /:/, $^H{antilocals}, 2;
 	$active =~ s{$_:1}{$_:0} foreach @symbols;
-	$^H{scopedvars} = join(':', $key, $active);
+	$^H{antilocals} = join(':', $key, $active);
 }
 
 sub hinthash_for_call_level {
@@ -49,10 +49,10 @@ sub hinthash_for_call_level {
 	return $call_info[10];
 }
 
-sub scopedvar {
+sub antilocal {
 	my ($symbol) = @_;
 	my $hh = hinthash_for_call_level(1);
-	my ($key, %active) = split /:/, $hh->{scopedvars};
+	my ($key, %active) = split /:/, $hh->{antilocals};
 
 	return $active{$symbol} ? $vars{$key}{$symbol} : undef;
 }
