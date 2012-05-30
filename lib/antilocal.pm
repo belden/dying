@@ -6,20 +6,21 @@ use warnings;
 use Data::Dumper;
 
 our %vars;
-my $key = 0;
-
 sub import {
 	my ($class, @symbols) = @_;
 
-	$^H{antilocals} = join(':', $key, map { ($_, 1) } @symbols);
+	my @caller = caller;
+	_export($caller[0]);
+
+	$^H{antilocals} = join(':', map { ($_, 1) } @symbols);
 
 	foreach (@symbols) {
-		$vars{$key}{$_} = $class->default_for_symbol($_);
+		$vars{$_} ||= $class->default_for_symbol($_);
   }
+}
 
-	$key++;
-
-	my $caller = caller;
+sub _export {
+	my ($caller) = @_;
 	no strict 'refs';
 	no warnings 'redefine';
 	*{"$caller\::antilocal"} = \&antilocal;
@@ -38,23 +39,17 @@ sub default_for_symbol {
 sub unimport {
 	my ($class, @symbols) = @_;
 
-	my ($key, $active) = split /:/, $^H{antilocals}, 2;
-	$active =~ s{$_:1}{$_:0} foreach @symbols;
-	$^H{antilocals} = join(':', $key, $active);
-}
-
-sub hinthash_for_call_level {
-	my ($level) = @_;
-	my @call_info = caller($level);
-	return $call_info[10];
+	$^H{antilocals} =~ s{$_:1}{$_:0} foreach @symbols;
 }
 
 sub antilocal {
 	my ($symbol) = @_;
-	my $hh = hinthash_for_call_level(1);
-	my ($key, %active) = split /:/, $hh->{antilocals};
+	my @ci = caller(0);
+	my $hh = $ci[10];
+	return undef if ! defined $hh;
+	my (%active) = split /:/, $hh->{antilocals};
 
-	return $active{$symbol} ? $vars{$key}{$symbol} : undef;
+	return $active{$symbol} ? $vars{$symbol} : undef;
 }
 
 1;
