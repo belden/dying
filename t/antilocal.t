@@ -8,6 +8,15 @@ use Test::Deep;
 
 use lib '../lib';
 
+blah();
+my $another_copy_altogether = antilocal('%bar');
+cmp_deeply( $another_copy_altogether, {goodnight => 'moon'} );
+
+sub blah {
+	somewhere->foo;
+	my $yet_another_foo = antilocal('%bar');
+	cmp_deeply( $yet_another_foo, {goodnight => 'moon'} );
+}
 {
 	package somewhere;
 	sub foo {
@@ -42,13 +51,3 @@ use lib '../lib';
 		}
 	}
 }
-
-sub blah {
-	somewhere->foo;
-	my $yet_another_foo = antilocal('%bar');
-	cmp_deeply( $yet_another_foo, {goodnight => 'moon'} );
-}
-
-blah();
-my $another_copy_altogether = antilocal('%bar');
-cmp_deeply( $another_copy_altogether, {goodnight => 'moon'} );
