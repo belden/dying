@@ -5,6 +5,7 @@ use warnings;
 
 our $VERSION = 0.01;
 use Want qw(rreturn);
+use Data::Dumper;
 
 BEGIN {
 	*CORE::GLOBAL::die = \&mydie;
@@ -30,6 +31,18 @@ BEGIN {
 	# );
 }
 
+{
+	my @died;
+	sub died {
+		return trapping_die()
+			? wantarray
+				? @died
+				: scalar @died
+			: 0;
+	}
+	sub died_with { unshift @died, [@_] };
+}
+
 sub mydie {
 	died_with(@_);
 	if (trapping_die()) {
@@ -51,39 +64,30 @@ sub trapping_die {
 	# surprising, and if you've read this comment and want this code to behave differently
 	# please do let me know. My decision here is fairly arbitrary.
 	my $i;
-	while (++$i) {
-		my @caller_info = caller($i);
-		return 0 if ! @caller_info;
-		return 1 if $caller_info[10]{trapping_die};
+	while (my @ci = caller($i++)) {
+		return 1 if $ci[10]{trapping_die};
 	}
+	return 0;
 }
 
 sub import {
 	$^H{trapping_die} = 0;
-	_export_to_package(scalar caller);
+	_mega_export();
 }
 
 sub unimport {
 	$^H{trapping_die} = 1;
-	_export_to_package(scalar caller);
+	_mega_export();
 }
 
-{
-	my %exported;
-	sub _export_to_package {
-		my ($package) = @_;
-		if (! $exported{$package}++) {
-			no strict 'refs';
-			no warnings 'redefine';
-			*{"$package\::died"} = \&died;
-		}
+sub _mega_export {
+	my $i = 0;
+	while (my @c = caller($i++)) {
+		next if $c[0] eq __PACKAGE__;
+		no strict 'refs';
+		no warnings 'redefine';
+		*{"$c[0]\::died"} = \&died;
 	}
-}
-
-{
-	my @died;
-  sub died { wantarray ? @died : scalar @died }
-  sub died_with { unshift @died, [@_] };
 }
 
 1;
