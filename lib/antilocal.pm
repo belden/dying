@@ -9,21 +9,25 @@ our %vars;
 sub import {
 	my ($class, @symbols) = @_;
 
-	my @caller = caller;
-	_export($caller[0]);
-
 	$^H{antilocals} = join(':', map { ($_, 1) } @symbols);
 
 	foreach (@symbols) {
 		$vars{$_} ||= $class->default_for_symbol($_);
-  }
+	}
+
+	{
+		my $i = 0;
+		while (my $callpkg = caller($i++)) {
+			_export($callpkg);
+		}
+	}
 }
 
 sub _export {
-	my ($caller) = @_;
+	my ($callpkg) = @_;
 	no strict 'refs';
 	no warnings 'redefine';
-	*{"$caller\::antilocal"} = \&antilocal;
+	*{"$callpkg\::antilocal"} = \&antilocal;
 }
 
 sub default_for_symbol {
@@ -42,13 +46,24 @@ sub unimport {
 	$^H{antilocals} =~ s{$_:1}{$_:0} foreach @symbols;
 }
 
+my %deeper_hinthash;
 sub antilocal {
 	my ($symbol) = @_;
-	my @ci = caller(0);
-	my $hh = $ci[10];
-	return undef if ! defined $hh;
-	my (%active) = split /:/, $hh->{antilocals};
 
+	my $hinthash = (caller(0))[10];
+	my $callsub = (caller(1))[3];
+
+	if (! defined $hinthash) {
+		$hinthash = $deeper_hinthash{$callsub || ''};
+		return undef if ! defined $hinthash;
+	} else {
+		$deeper_hinthash{''} = $hinthash;
+		my $i = 0;
+		while (my @ci = caller($i++)) {
+			$deeper_hinthash{$ci[3]} = $hinthash if ! $ci[10];
+		}
+	}
+	my (%active) = split /:/, $hinthash->{antilocals};
 	return $active{$symbol} ? $vars{$symbol} : undef;
 }
 
