@@ -22,6 +22,9 @@ use lib '../lib';
 	main::is( $@, "setting \$@\n", 'we left $@ untouched' );
 }
 
+is( died, 0, 'no dies after scope end' );
+
+__END__
 # If you explicitly 'use dying;' then you may choose to look at died() rather than $@
 {
 	package lame::too;
