@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 use Test::Deep;
 
 use lib '../lib';
@@ -45,9 +45,10 @@ use lib '../lib';
 
 sub blah {
 	somewhere->foo;
-	use antilocal ('%bar');
 	my $yet_another_foo = antilocal('%bar');
 	cmp_deeply( $yet_another_foo, {goodnight => 'moon'} );
 }
 
 blah();
+my $another_copy_altogether = antilocal('%bar');
+cmp_deeply( $another_copy_altogether, {goodnight => 'moon'} );
