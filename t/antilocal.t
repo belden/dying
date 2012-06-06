@@ -17,6 +17,7 @@ sub blah {
 	my $yet_another_foo = antilocal('%bar');
 	cmp_deeply( $yet_another_foo, {goodnight => 'moon'} );
 }
+
 {
 	package somewhere;
 	sub foo {
