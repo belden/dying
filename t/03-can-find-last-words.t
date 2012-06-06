@@ -4,6 +4,8 @@ use strict;
 use warnings;
 
 use Test::More tests => 4;
+use Test::Cookbook;
+use Test::Differences;
 
 use lib '../lib';
 
@@ -17,13 +19,13 @@ use lib '../lib';
 	no dying;
 	die "here I am\n";
 
-	main::ok( died, 'we died' );
-	main::is_deeply( [died], [["here I am\n"]], "in 'no dying;' context, found the die" );
+	my @died = died();
+	main::ok( @died, 'we died' );
+	main::eq_or_diff( [@died], [["here I am\n"]], "in 'no dying;' context, found the die" );
 	main::is( $@, "setting \$@\n", 'we left $@ untouched' );
 }
 
 is( died, 0, 'no dies after scope end' );
-
 __END__
 # If you explicitly 'use dying;' then you may choose to look at died() rather than $@
 {
@@ -33,6 +35,8 @@ __END__
 	eval { die "here I am\n" };
 
 	main::is( died, 1,"we've died once" );
+}
+__END__
 	main::is_deeply( [died], [["here I am\n"]] );
 	main::is( $@, "here I am\n" );
 

@@ -31,18 +31,6 @@ BEGIN {
 	# );
 }
 
-{
-	my @died;
-	sub died {
-		return trapping_die()
-			? wantarray
-				? @died
-				: scalar @died
-			: 0;
-	}
-	sub died_with { unshift @died, [@_] };
-}
-
 sub mydie {
 	died_with(@_);
 	if (trapping_die()) {
@@ -64,20 +52,45 @@ sub trapping_die {
 	# surprising, and if you've read this comment and want this code to behave differently
 	# please do let me know. My decision here is fairly arbitrary.
 	my $i;
+	my $no;
 	while (my @ci = caller($i++)) {
-		return 1 if $ci[10]{trapping_die};
+		if (exists $ci[10]{trapping_die}) {
+			return 1 if $ci[10]{trapping_die};
+		} else {
+      $no = 1;
+    }
 	}
-	return 0;
+	return $no;
 }
 
 sub import {
 	$^H{trapping_die} = 0;
+	_install_die_handler();
 	_mega_export();
 }
 
 sub unimport {
 	$^H{trapping_die} = 1;
+	# _install_die_handler();
 	_mega_export();
+}
+
+
+{
+	my @died;
+	sub died {
+		return trapping_die()
+			? wantarray
+				? @died
+				: scalar @died
+			: 0;
+	}
+	sub died_with { unshift @died, [@_] };
+}
+
+# my $orig = $SIG{__DIE__} || sub {};
+sub _install_die_handler {
+	$SIG{__DIE__} = sub { died_with(@_) if trapping_die() };
 }
 
 sub _mega_export {
