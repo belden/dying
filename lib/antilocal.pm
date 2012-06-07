@@ -6,6 +6,7 @@ use warnings;
 use Data::Dumper;
 
 our %vars;
+our %exported;
 sub import {
 	my ($class, @symbols) = @_;
 
@@ -18,6 +19,7 @@ sub import {
 	{
 		my $i = 0;
 		while (my $callpkg = caller($i++)) {
+			next if $exported{$callpkg}++;
 			_export($callpkg);
 		}
 	}
@@ -60,7 +62,7 @@ sub antilocal {
 		$deeper_hinthash{''} = $hinthash;
 		my $i = 0;
 		while (my @ci = caller($i++)) {
-			$deeper_hinthash{$ci[3]} = $hinthash if ! $ci[10];
+			$deeper_hinthash{$ci[3]} = $hinthash if ! exists $ci[10]{antilocal};
 		}
 	}
 	my (%active) = split /:/, $hinthash->{antilocals};
