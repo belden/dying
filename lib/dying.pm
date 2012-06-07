@@ -31,16 +31,28 @@ BEGIN {
 	# );
 }
 
-{
-	my @died;
-	sub died {
-		return trapping_die()
-			? wantarray
-				? @died
-				: scalar @died
-			: 0;
-	}
-	sub died_with { unshift @died, [@_] };
+sub died {
+	use antilocal qw(@died);
+	my $died = antilocal('@died');
+
+	my $trapping_die = trapping_die();
+	return unless defined $trapping_die;
+
+	my $i;
+	my @died = $trapping_die
+		? @$died
+		: grep { ++$i % 2 == 0 } @$died;
+
+	return wantarray
+		? @died
+		: scalar @died;
+}
+
+sub died_with {
+	use antilocal qw(@died);
+	my $died = antilocal('@died');
+
+	unshift @$died, [@_];
 }
 
 sub mydie {
@@ -57,17 +69,24 @@ sub trapping_die {
 	# if the caller wants the pragma to be in effect or not. We walk all the way up the
 	# stack until we either (a) find proof someone higher than our caller has said
 	# 'no dying', or (b) walk all the way off the call stack. "our caller" here means
-	# "the code that has called die()".
+	# "the code that has called die()" as opposed to "the code that said 'no dying'".
 	#
 	# N.B.: Once we find (a) we *don't* continue walking up the stack to see whether
 	# some even more distant caller has *enabled* dying. This asymmetry is probably
 	# surprising, and if you've read this comment and want this code to behave differently
 	# please do let me know. My decision here is fairly arbitrary.
 	my $i;
+	my $no;
 	while (my @ci = caller($i++)) {
-		return 1 if $ci[10]{trapping_die};
+		if (exists $ci[10]{trapping_die}) {
+			if ($ci[10]{trapping_die}) {
+        return 1;
+      } else {
+				$no = 0;
+			}
+		}
 	}
-	return 0;
+	return $no;
 }
 
 sub import {
