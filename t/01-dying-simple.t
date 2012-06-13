@@ -30,8 +30,9 @@ $SIG{__DIE__} = sub { $died = 1 };
 	no dying;
 	die $knell;
 
-	ok( dying::died == 1, 'we died once' );
-	like( (dying::died)[0][0], qr/\Q$knell\E/, "we can find our death knell" );
+	my @d = dying::died;
+	ok( @d == 1, 'we died once' );
+	like( $d[0]->error, qr/\Q$knell\E/, "we can find our death knell" );
 	is( $died, 1, "\$SIG{__DIE__} got hit" );
 	is( $@, undef, "We aren't implemented in terms of an eval" );
 }
