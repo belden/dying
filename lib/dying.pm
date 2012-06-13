@@ -34,14 +34,10 @@ BEGIN {
 sub died {
 	use antilocal qw(@died);
 	my $died = antilocal('@died');
+	my @died = grep { $_->is_active } @$died;
 
 	my $trapping_die = trapping_die();
 	return unless defined $trapping_die;
-
-	my $i;
-	my @died = $trapping_die
-		? @$died
-		: grep { ++$i % 2 == 0 } @$died;
 
 	return wantarray
 		? @died
@@ -51,13 +47,13 @@ sub died {
 sub died_with {
 	use antilocal qw(@died);
 	my $died = antilocal('@died');
-
-	unshift @$died, [@_];
+	unshift @$died, dying::error->new(@_);
 }
 
 sub mydie {
-	died_with(@_);
-	if (trapping_die()) {
+	my $trapping_die = trapping_die();
+	died_with(@_) if defined $trapping_die;
+	if ($trapping_die) {
 		rreturn undef;
 	} else {
 		CORE::die(@_);
@@ -107,6 +103,36 @@ sub _mega_export {
 		no warnings 'redefine';
 		*{"$c[0]\::died"} = \&died;
 	}
+}
+
+{
+	package dying::error;
+
+	use strict;
+	use warnings;
+	require Time::HiRes;
+
+	sub new {
+		my ($class, @error) = @_;
+
+		my @callstack;
+		my $i = 1; # start at 1 rather than 0 so dying::error->new doesn't appear
+		while (my @callinfo = caller($i++)) {
+			push @callstack, [map { ref($_) eq 'HASH' ? +{%$_} : $_ } @callinfo];
+		}
+
+		local $" = ' ';
+		return bless {
+      error => "@error",
+      time => Time::HiRes::time(),
+      callstack => \@callstack,
+			state => 'active',
+    }, $class;
+	}
+
+	sub error { shift->{error} }
+	sub ack { shift->{state} = 'acknowledged' }
+	sub is_active { shift->{state} eq 'active' }
 }
 
 1;

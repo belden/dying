@@ -57,7 +57,7 @@ sub antilocal {
 
 	if (! defined $hinthash) {
 		$hinthash = $deeper_hinthash{$callsub || ''};
-		return undef if ! defined $hinthash;
+		return () if ! defined $hinthash;
 	} else {
 		$deeper_hinthash{''} = $hinthash;
 		my $i = 0;
@@ -66,7 +66,7 @@ sub antilocal {
 		}
 	}
 	my (%active) = split /:/, $hinthash->{antilocals};
-	return $active{$symbol} ? $vars{$symbol} : undef;
+	return $active{$symbol} ? $vars{$symbol} : ();
 }
 
 1;
