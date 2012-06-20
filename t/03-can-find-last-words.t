@@ -29,7 +29,7 @@ sub deep_ok ($$;$) {
 		main::ok( died, 'we died' );
 		main::deep_ok( [map { $_->error } died], [["here I am in lame::one\n"]], "in 'no dying;' context, found the die" );
 		main::is( $@, "setting \$@\n", 'we left $@ untouched' );
-		$_->ack foreach died;
+		died->ack;
 		main::deep_ok( [map { $_->error } died], [], 'nothing active after acking' );
 	}
 }

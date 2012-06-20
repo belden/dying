@@ -41,7 +41,7 @@ sub died {
 
 	return wantarray
 		? @died
-		: scalar @died;
+		: dying::collection->new(@died);
 }
 
 sub died_with {
@@ -103,6 +103,25 @@ sub _mega_export {
 		no warnings 'redefine';
 		*{"$c[0]\::died"} = \&died;
 	}
+}
+
+{
+	package dying::collection;
+
+	use strict;
+	use warnings;
+
+	use overload (
+		'0+' => sub { @{shift()} },
+		fallback => 1,
+	);
+
+	sub new {
+		my $class = shift;
+		return bless [@_], $class;
+	}
+
+	sub ack { return map { $_->ack } @{shift()} }
 }
 
 {
@@ -182,25 +201,25 @@ C<die> gets used in two different ways by Perl programmers:
 
 =over 4
 
-=item 1. To terminate program execution, as in the venerable "open() or die()"
+=item 1. To terminate program execution when an invalid state has been reached.
 
-=item 2. To message failure back to a caller.
+=item 2. As an assertion system to message failure back to a caller.
 
 =back
 
-die() also gets used as a messaging system for handleable exceptions in code. For example, consider this code:
+For example, consider this code:
 
 =over 4
 
   sub open_a_fh {
     my ($file) = @_;
     open my $fh, '>', $file or die "$file: $!\n";
-		return $fh;
+    return $fh;
   }
 
 =back
 
-And a corresponding caller:
+It looks like we're dying because we've hit an invalid state. Especially if our corresponding caller looks like so:
 
 =over 4
 
@@ -209,8 +228,7 @@ And a corresponding caller:
 
 =back
 
-In this case, the die() in open_a_fh() looks reasonable; if we can't open the target file we die. However, a caller might look
-like this:
+However, a caller might look like this:
 
 =over 4
 
@@ -229,8 +247,8 @@ like this:
 
 =back
 
-In this case, the die() in open_a_fh() is now a design decision that we need to actively work against. We guard against the die()
-by changing choose_a_log_fh() like so:
+In this case, the die() in open_a_fh() is now a design decision that we need to actively work against. We must guard against
+the die() by changing choose_a_log_fh() like so:
 
 =over 4
 
@@ -269,6 +287,123 @@ so:
 
     return \*STDERR;
   }
+
+=back
+
+If you want to check whether a death occured, you may use C<died>:
+
+=over 4
+
+  sub choose_a_log_fh {
+
+     foreach my $possible_log_file (qw(/tmp/here /tmp/there /tmp/anywhere)) {
+      no dying;
+      my $fh = open_a_fh($possible_log_file);
+      died->ack if died;                           # we've "handled this error" by trying other files.
+      return $fh if defined $fh;
+    }
+
+    return \*STDERR;
+  }
+
+=back
+
+=head1 POLICY ON DYING
+
+This module provides two related policies for handling C<die>: reporting, and de-escalation. In both cases, any call to
+C<die> while this module is in effect will result in the C<died> function being populated with meaningful data regarding
+exceptions.
+
+Note that selecting either the reporting or de-escalation policy will make the C<died> function available to your current
+call stack and all those that are higher, and will report on or de-escalate deaths within your current call stack and
+all those that are lower.
+
+=head2 POLICY: REPORTING
+
+The most basic use of this module is to simply say
+
+=over 4
+
+  use dying;
+
+=back
+
+With C<use dying;> in effect, calls to C<die> actually will die in the standard fashion. This means you will need to
+C<eval> any code which may die, just as you normally would.
+
+The added behavior from C<use dying;> is that assertion objects are stored in an L<antilocal> location, and may be later
+retrieved and acknowledged or rethrown. Additionally, if your program terminates with any unacknowledged exceptions, they
+will present their full details to STDERR when your program exits.
+
+=head2 POLICY: DE-ESCALATION
+
+You may de-escalate assertions from deaths to warnings by simply adding
+
+=over 4
+
+  no dying;
+
+=back
+
+to your program. When C<dying> is not in effect, your Perl program will not be allowed to C<die>. Instead, deaths are
+reported in the same fashion as the reporting policy, and your program's execution continues.
+
+Note that the function which attempted to C<die> will return undef to its caller.
+
+=head1 SCOPING
+
+Unlike other pragmata, which are lexically scoped simply to the current lexical level, C<dying> affects your current lexical
+scope and all lower scopes. This means that once you select a policy, either by importing or unimporting C<dying>, any attempt
+to C<die> in your current scope or any subroutine you call within that scope will result in your selected policy being enforced.
+
+As previously noted, C<died> gets exported all the way back up your call stack. Ideally, the C<died> that gets exported all the
+way up would be localised only to the environment that imports or unimports C<dying>. That is, given this code:
+
+=over 4
+
+     1		#!/usr/bin/env perl
+     2
+     3		use Hither;
+     4
+     5		Hither::quack_safely();
+     6
+
+Nothing exciting yet. We've loaded a module and called a function.
+
+     7		package Hither;
+     8
+     9		use Somewhere;
+    10
+    11		sub quack_safely {
+    12		  my $jail = Somewhere->new;
+    13			$jail->safe_method_call('quack');
+    14		}
+    15
+
+XXX
+
+		16	  package Somewhere;
+    17
+    18	  sub safe_method_call {
+    19	    my ($self, $method, @args) = @_;
+    20	    no dying;
+    21	    my @return_values = $self->$method(@args);
+    22	    return died->ack ? () : @return_values;
+    23	  }
+    24
+    25	  sub quack { die 'quack' }
+
+=back
+
+Line 5 causes dying.pm to export died() all the way up Somewhere::safe_method_call's call stack.
+
+=head1 EXPORTS
+
+=over 4
+
+=item * C<died>
+Answers the age-old question, "Did the code that I just trapped die?". In scalar context, returns the count of assertions
+that have been trapped for your current call level. In list context, returns the actual assertion objects themselves.
 
 =back
 
