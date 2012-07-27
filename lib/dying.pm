@@ -6,30 +6,9 @@ use warnings;
 our $VERSION = 0.01;
 use Want qw(rreturn);
 use Data::Dumper;
+use Scalar::Util qw(refaddr);
 
-BEGIN {
-	*CORE::GLOBAL::die = \&mydie;
-
-	# require Carp;
-	# no warnings 'redefine';
-
-	# my $build_handler = sub {
-	# 	my ($if, $else) = @_;
-	# 	return sub { goto &{ trapping_die() ? $if : $else } };
-	# };
-
-	# my $orig_croak = \&Carp::croak;
-	# *Carp::croak = $build_handler->(
-	# 	sub { died_with(@_); Carp::carp(@_); rreturn undef },
-	# 	$orig_croak,
-	# );
-
-	# my $orig_confess = \&Carp::confess;
-	# *Carp::confess = $build_handler->(
-	# 	sub { died_with(@_); Carp::cluck(@_); rreturn undef },
-	# 	$orig_confess,
-	# );
-}
+BEGIN {	*CORE::GLOBAL::die = \&mydie }
 
 sub died {
 	use antilocal qw(@died);
@@ -68,16 +47,14 @@ sub trapping_die {
 	# "the code that has called die()" as opposed to "the code that said 'no dying'".
 	#
 	# N.B.: Once we find (a) we *don't* continue walking up the stack to see whether
-	# some even more distant caller has *enabled* dying. This asymmetry is probably
-	# surprising, and if you've read this comment and want this code to behave differently
-	# please do let me know. My decision here is fairly arbitrary.
+	# some even more distant caller has *enabled* dying.
 	my $i;
 	my $no;
 	while (my @ci = caller($i++)) {
 		if (exists $ci[10]{trapping_die}) {
 			if ($ci[10]{trapping_die}) {
-        return 1;
-      } else {
+				return 1;
+			} else {
 				$no = 0;
 			}
 		}
@@ -85,14 +62,43 @@ sub trapping_die {
 	return $no;
 }
 
-sub import {
-	$^H{trapping_die} = 0;
-	_mega_export();
-}
+{
+	# when someone says 'use dying', they want dying to resume: make sure Carp::croak and ::confess are the real subs
+	my %carp_import = (
+		croak => \&Carp::croak,
+		confess => \&Carp::confess,
+	);
 
-sub unimport {
-	$^H{trapping_die} = 1;
-	_mega_export();
+	# when someone says 'no dying', they want dying to stop: replace Carp::croak and ::confess with \&mydie
+	my %carp_unimport = (
+		croak => \&mydie,
+		confess => \&mydie,
+	);
+
+	sub _swap_carp_diers_around {
+		my (%subs_to_swap_in) = @_;
+		my $caller = caller(1);
+
+		no strict 'refs';
+		no warnings 'redefine';
+		my %stash = %{"$caller\::"};
+		foreach (qw(croak confess)) {
+			*{"$caller\::$_"} = $subs_to_swap_in{$_} if exists $stash{$_} && refaddr(\&{"$caller\::$_"}) == refaddr(\&{"Carp\::$_"});
+			*{"Carp\::$_"} = $subs_to_swap_in{$_};
+		}
+	}
+
+	sub import {
+		$^H{trapping_die} = 0;
+		_swap_carp_diers_around(%carp_import);
+		_mega_export();
+	}
+
+	sub unimport {
+		$^H{trapping_die} = 1;
+		_swap_carp_diers_around(%carp_unimport);
+		_mega_export();
+	}
 }
 
 sub _mega_export {
@@ -142,11 +148,11 @@ sub _mega_export {
 
 		local $" = ' ';
 		return bless {
-      error => "@error",
-      time => Time::HiRes::time(),
-      callstack => \@callstack,
+			error => "@error",
+			time => Time::HiRes::time(),
+			callstack => \@callstack,
 			state => 'active',
-    }, $class;
+		}, $class;
 	}
 
 	sub error { shift->{error} }
