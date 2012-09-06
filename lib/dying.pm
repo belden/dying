@@ -5,159 +5,158 @@ use warnings;
 
 our $VERSION = 0.01;
 use Want qw(rreturn);
-use Data::Dumper;
 use Scalar::Util qw(refaddr);
 
-BEGIN {	*CORE::GLOBAL::die = \&mydie }
+BEGIN { *CORE::GLOBAL::die = \&mydie }
 
 sub died {
-	use antilocal qw(@died);
-	my $died = antilocal('@died');
-	my @died = grep { $_->is_active } @$died;
+  use antilocal qw(@died);
+  my $died = antilocal('@died');
+  my @died = grep { $_->is_active } @$died;
 
-	my $trapping_die = trapping_die();
-	return unless defined $trapping_die;
+  my $trapping_die = trapping_die();
+  return unless defined $trapping_die;
 
-	return wantarray
-		? @died
-		: dying::collection->new(@died);
+  return wantarray
+    ? @died
+    : dying::collection->new(@died);
 }
 
 sub died_with {
-	use antilocal qw(@died);
-	my $died = antilocal('@died');
-	unshift @$died, dying::error->new(@_);
+  use antilocal qw(@died);
+  my $died = antilocal('@died');
+  unshift @$died, dying::error->new(@_);
 }
 
 sub mydie {
-	my $trapping_die = trapping_die();
-	died_with(@_) if defined $trapping_die;
-	if ($trapping_die) {
-		rreturn undef;
-	} else {
-		CORE::die(@_);
-	}
+  my $trapping_die = trapping_die();
+  died_with(@_) if defined $trapping_die;
+  if ($trapping_die) {
+    rreturn undef;
+  } else {
+    CORE::die(@_);
+  }
 }
 
 sub trapping_die {
-	# Generally a pragma would just check (caller(1))[10]->{trapping_die} here to see
-	# if the caller wants the pragma to be in effect or not. We walk all the way up the
-	# stack until we either (a) find proof someone higher than our caller has said
-	# 'no dying', or (b) walk all the way off the call stack. "our caller" here means
-	# "the code that has called die()" as opposed to "the code that said 'no dying'".
-	#
-	# N.B.: Once we find (a) we *don't* continue walking up the stack to see whether
-	# some even more distant caller has *enabled* dying.
-	my $i;
-	my $no;
-	while (my @ci = caller($i++)) {
-		if (exists $ci[10]{trapping_die}) {
-			if ($ci[10]{trapping_die}) {
-				return 1;
-			} else {
-				$no = 0;
-			}
-		}
-	}
-	return $no;
+  # Generally a pragma would just check (caller(1))[10]->{dying} here to see
+  # if the caller wants the pragma to be in effect or not. We walk all the way up the
+  # stack until we either (a) find proof someone higher than our caller has said
+  # 'no dying', or (b) walk all the way off the call stack. "our caller" here means
+  # "the code that has called die()" as opposed to "the code that said 'no dying'".
+  #
+  # N.B.: Once we find (a) we *don't* continue walking up the stack to see whether
+  # some even more distant caller has *enabled* dying.
+  my $i;
+  my $no;
+  while (my @ci = caller($i++)) {
+    if (exists $ci[10]{dying}) {
+      if ($ci[10]{dying}) {
+        return 1;
+      } else {
+        $no = 0;
+      }
+    }
+  }
+  return $no;
 }
 
 {
-	# when someone says 'use dying', they want dying to resume: make sure Carp::croak and ::confess are the real subs
-	my %carp_import = (
-		croak => \&Carp::croak,
-		confess => \&Carp::confess,
-	);
+  # when someone says 'use dying', they want dying to resume: make sure Carp::croak and ::confess are the real subs
+  my %carp_import = (
+    croak => \&Carp::croak,
+    confess => \&Carp::confess,
+  );
 
-	# when someone says 'no dying', they want dying to stop: replace Carp::croak and ::confess with \&mydie
-	my %carp_unimport = (
-		croak => \&mydie,
-		confess => \&mydie,
-	);
+  # when someone says 'no dying', they want dying to stop: replace Carp::croak and ::confess with \&mydie
+  my %carp_unimport = (
+    croak => \&mydie,
+    confess => \&mydie,
+  );
 
-	sub _swap_carp_diers_around {
-		my (%subs_to_swap_in) = @_;
-		my $caller = caller(1);
+  sub _swap_carp_diers_around {
+    my (%subs_to_swap_in) = @_;
+    my $caller = caller(1);
 
-		no strict 'refs';
-		no warnings 'redefine';
-		my %stash = %{"$caller\::"};
-		foreach (qw(croak confess)) {
-			*{"$caller\::$_"} = $subs_to_swap_in{$_} if exists $stash{$_} && refaddr(\&{"$caller\::$_"}) == refaddr(\&{"Carp\::$_"});
-			*{"Carp\::$_"} = $subs_to_swap_in{$_};
-		}
-	}
+    no strict 'refs';
+    no warnings 'redefine';
+    my %stash = %{"$caller\::"};
+    foreach (qw(croak confess)) {
+      *{"$caller\::$_"} = $subs_to_swap_in{$_} if exists $stash{$_} && refaddr(\&{"$caller\::$_"}) == refaddr(\&{"Carp\::$_"});
+      *{"Carp\::$_"} = $subs_to_swap_in{$_};
+    }
+  }
 
-	sub import {
-		$^H{trapping_die} = 0;
-		_swap_carp_diers_around(%carp_import);
-		_mega_export();
-	}
+  sub import {
+    $^H{dying} = 0;
+    _swap_carp_diers_around(%carp_import);
+    _mega_export();
+  }
 
-	sub unimport {
-		$^H{trapping_die} = 1;
-		_swap_carp_diers_around(%carp_unimport);
-		_mega_export();
-	}
+  sub unimport {
+    $^H{dying} = 1;
+    _swap_carp_diers_around(%carp_unimport);
+    _mega_export();
+  }
 }
 
 sub _mega_export {
-	my $i = 0;
-	while (my @c = caller($i++)) {
-		next if $c[0] eq __PACKAGE__;
-		no strict 'refs';
-		no warnings 'redefine';
-		*{"$c[0]\::died"} = \&died;
-	}
+  my $i = 0;
+  while (my @c = caller($i++)) {
+    next if $c[0] eq __PACKAGE__;
+    no strict 'refs';
+    no warnings 'redefine';
+    *{"$c[0]\::died"} = \&died;
+  }
 }
 
 {
-	package dying::collection;
+  package dying::collection;
 
-	use strict;
-	use warnings;
+  use strict;
+  use warnings;
 
-	use overload (
-		'0+' => sub { @{shift()} },
-		fallback => 1,
-	);
+  use overload (
+    '0+' => sub { @{shift()} },
+    fallback => 1,
+  );
 
-	sub new {
-		my $class = shift;
-		return bless [@_], $class;
-	}
+  sub new {
+    my $class = shift;
+    return bless [@_], $class;
+  }
 
-	sub ack { return map { $_->ack } @{shift()} }
+  sub ack { return map { $_->ack } @{shift()} }
 }
 
 {
-	package dying::error;
+  package dying::error;
 
-	use strict;
-	use warnings;
-	require Time::HiRes;
+  use strict;
+  use warnings;
+  require Time::HiRes;
 
-	sub new {
-		my ($class, @error) = @_;
+  sub new {
+    my ($class, @error) = @_;
 
-		my @callstack;
-		my $i = 1; # start at 1 rather than 0 so dying::error->new doesn't appear
-		while (my @callinfo = caller($i++)) {
-			push @callstack, [map { ref($_) eq 'HASH' ? +{%$_} : $_ } @callinfo];
-		}
+    my @callstack;
+    my $i = 1; # start at 1 rather than 0 so dying::error->new doesn't appear
+    while (my @callinfo = caller($i++)) {
+      push @callstack, [map { ref($_) eq 'HASH' ? +{%$_} : $_ } @callinfo];
+    }
 
-		local $" = ' ';
-		return bless {
-			error => "@error",
-			time => Time::HiRes::time(),
-			callstack => \@callstack,
-			state => 'active',
-		}, $class;
-	}
+    local $" = ' ';
+    return bless {
+      error => "@error",
+      time => Time::HiRes::time(),
+      callstack => \@callstack,
+      state => 'active',
+    }, $class;
+  }
 
-	sub error { shift->{error} }
-	sub ack { shift->{state} = 'acknowledged' }
-	sub is_active { shift->{state} eq 'active' }
+  sub error { shift->{error} }
+  sub ack { shift->{state} = 'acknowledged' }
+  sub is_active { shift->{state} eq 'active' }
 }
 
 1;
@@ -218,9 +217,9 @@ For example, consider this code:
 =over 4
 
   sub open_a_fh {
-    my ($file) = @_;
-    open my $fh, '>', $file or die "$file: $!\n";
-    return $fh;
+      my ($file) = @_;
+      open my $fh, '>', $file or die "$file: $!\n";
+      return $fh;
   }
 
 =back
@@ -240,12 +239,12 @@ However, a caller might look like this:
 
   sub choose_a_log_fh {
 
-    foreach my $possible_log_file (qw(/tmp/here /tmp/there /tmp/anywhere)) {
-      my $fh = open_a_fh($possible_log_file);
-      return $fh if defined $fh;
-    }
+      foreach my $possible_log_file (qw(/tmp/here /tmp/there /tmp/anywhere)) {
+          my $fh = open_a_fh($possible_log_file);
+          return $fh if defined $fh;
+      }
 
-    return \*STDERR;
+      return \*STDERR;
   }
 
   my $fh = choose_a_log_fh();
@@ -260,12 +259,12 @@ the die() by changing choose_a_log_fh() like so:
 
   sub choose_a_log_fh {
 
-    foreach my $possible_log_file (qw(/tmp/here /tmp/there /tmp/anywhere)) {
-      my $fh = eval { open_a_fh($possible_log_file) };
-      return $fh if defined $fh;
-    }
+      foreach my $possible_log_file (qw(/tmp/here /tmp/there /tmp/anywhere)) {
+          my $fh = eval { open_a_fh($possible_log_file) };
+          return $fh if defined $fh;
+      }
 
-    return \*STDERR;
+      return \*STDERR;
   }
 
 =back
@@ -285,13 +284,13 @@ so:
 
   sub choose_a_log_fh {
 
-     foreach my $possible_log_file (qw(/tmp/here /tmp/there /tmp/anywhere)) {
-      no dying;                                    # de-escalate die() to warn()
-      my $fh = open_a_fh($possible_log_file);
-      return $fh if defined $fh;
-    }
+      foreach my $possible_log_file (qw(/tmp/here /tmp/there /tmp/anywhere)) {
+          no dying;                                    # de-escalate die() to warn()
+          my $fh = open_a_fh($possible_log_file);
+          return $fh if defined $fh;
+      }
 
-    return \*STDERR;
+      return \*STDERR;
   }
 
 =back
@@ -302,14 +301,14 @@ If you want to check whether a death occured, you may use C<died>:
 
   sub choose_a_log_fh {
 
-     foreach my $possible_log_file (qw(/tmp/here /tmp/there /tmp/anywhere)) {
-      no dying;
-      my $fh = open_a_fh($possible_log_file);
-      died->ack if died;                           # we've "handled this error" by trying other files.
-      return $fh if defined $fh;
-    }
+      foreach my $possible_log_file (qw(/tmp/here /tmp/there /tmp/anywhere)) {
+          no dying;
+          my $fh = open_a_fh($possible_log_file);
+          died->ack if died;                           # we've "handled this error" by trying other files.
+          return $fh if defined $fh;
+      }
 
-    return \*STDERR;
+      return \*STDERR;
   }
 
 =back
@@ -367,47 +366,70 @@ way up would be localised only to the environment that imports or unimports C<dy
 
 =over 4
 
-     1		#!/usr/bin/env perl
+     1    #!/usr/bin/env perl
      2
-     3		use Hither;
+     3    use Hither;
      4
-     5		Hither::quack_safely();
+     5    Hither::quack_safely();
      6
 
 Nothing exciting yet. We've loaded a module and called a function.
 
-     7		package Hither;
+     7    package Hither;
      8
-     9		use Somewhere;
+     9    use Somewhere;
     10
-    11		sub quack_safely {
-    12		  my $jail = Somewhere->new;
-    13			$jail->safe_method_call('quack');
-    14		}
+    11    sub quack_safely {
+    12        my $jail = Somewhere->new;
+    13        $jail->safe_method_call('quack');
+    14    }
     15
 
-XXX
+We've created an object and called a method on it; still tame.
 
-		16	  package Somewhere;
+    16    package Somewhere;
     17
-    18	  sub safe_method_call {
-    19	    my ($self, $method, @args) = @_;
-    20	    no dying;
-    21	    my @return_values = $self->$method(@args);
-    22	    return died->ack ? () : @return_values;
-    23	  }
+    18    sub safe_method_call {
+    19        my ($self, $method, @args) = @_;
+    20        no dying;
+    21        my @return_values = $self->$method(@args);
+    22        return died->ack ? () : @return_values;
+    23    }
     24
-    25	  sub quack { die 'quack' }
+    25    sub quack { die 'quack' }
+
+And here's our safe_method_call. It simply disables dying and dispatches the requested method.
 
 =back
 
-Line 5 causes dying.pm to export died() all the way up Somewhere::safe_method_call's call stack.
+Line 20 has three effects:
+
+=over 4
+
+=item 1. It prevents code from dying.
+
+The fatal call to $self->$method (wherein $method = 'quack') will not actually die. Instead, the caller of $self->$method
+(i.e. line 20 itself) will receive undef from its failed attempt to call ->quack.
+
+=item 2. It ensures you'll know your code died.
+
+The die() at line 25 will not go unreported. If the program being executed reaches its termination point without line 25's
+assertion being acknowledged, the program will produce a stack trace from point of execution to point of assertion.
+
+=item 3. It exports died() to this call frame and all others above it.
+
+Line 20 makes the died() function available to Somewhere::safe_method_call, Hither::quack_safely, and main. No other call
+frames may access died() - even within the namespaces of Somewhere::, Hither::, and main::. This surprising bit of scoping
+is accomplished via C<antilocal>, see which.
+
+=back
 
 =head1 EXPORTS
 
 =over 4
 
 =item * C<died>
+
 Answers the age-old question, "Did the code that I just trapped die?". In scalar context, returns the count of assertions
 that have been trapped for your current call level. In list context, returns the actual assertion objects themselves.
 
