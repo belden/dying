@@ -8,6 +8,13 @@ WriteMakefile(
   VERSION_FROM        => 'lib/dying.pm',
   ABSTRACT            => 'experimental Perl pragma for exceptions',
   LICENSE => 'perl',
+  META_MERGE => {
+    resources => {
+        bugtracker => 'http://github.com/belden/dying/issues',
+        homepage => 'http://github.com/belden/dying',
+        repository => 'git://github.com/belden/dying.git',
+    },
+  },
   PREREQ_PM => {
     'Test::More' => 0,
     'Test::Deep' => 0,
