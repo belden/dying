@@ -261,3 +261,21 @@ EXPORTS
   die?". In scalar context, returns the count of assertions that have
   been trapped for your current call level. In list context, returns
   the actual assertion objects themselves.
+
+DANGER
+======
+
+This is an experimental module. If you put it into production code, your code will stop dying and will begin running
+in inconsistent states *unless* you do work to notice the deaths you've trapped, and handle them.
+
+I'd be really curious to find out if anyone is brave enough to put this into production. I'm not, yet: partly because
+I know this idea is insane, and partly because I have conscientious colleagues who will not let me deploy this.
+
+COPYRIGHT AND LICENSE
+=====================
+
+  (c) 2013 by Belden Lyman
+
+This library is free software: you may redistribute it and/or modify it under the same terms as Perl
+itself; either Perl version 5.8.8 or, at your option, any later version of Perl 5 you may have
+available.
