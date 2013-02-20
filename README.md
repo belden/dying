@@ -5,16 +5,16 @@ dying - Perl pragma to prevent your code from dying
 DESCRIPTION
 ===========
 Free yourself from the unwanted burden of calling other code inside
-`eval' blocks! Make your code stop crashing, and allow it to continue
+`eval` blocks! Make your code stop crashing, and allow it to continue
 running in a possibly insane state! Play with an experimental exception
 module disguised as a legitimate pragma!
 
 SYNOPSIS
 ========
-You do not need to `use dying;' in order to use `dying'. All Perl code
-by default runs with `use dying;' enabled - that is, calling die() in
+You do not need to `use dying;` in order to use `dying`. All Perl code
+by default runs with `use dying;` enabled - that is, calling die() in
 normal Perl code prints a message to STDERR and causes your program to
-terminate execution. (See also: `perldoc -f die'.)
+terminate execution. (See also: perldoc -f die'.)
 
 If you want your code to stop dying, now you can simply write:
 
@@ -30,13 +30,13 @@ again, you simply add
 use dying;
 ```
 
-at the appropriate place. If you scope your calls to `no dying;' to the
+at the appropriate place. If you scope your calls to `no dying;` to the
 lexical scope that's causing you grief, you don't need to bother with
-the `use dying;'.
+the `use dying;`.
 
 APOLOGY
 =======
-`die' gets used in two different ways by Perl programmers:
+`die` gets used in two different ways by Perl programmers:
 
 1. To terminate program execution when an invalid state has been
 reached.
@@ -93,7 +93,7 @@ sub choose_a_log_fh {
 }
 ```
 
-The `eval' has the effect of telling Perl that some subordinate piece of
+The `eval` has the effect of telling Perl that some subordinate piece of
 code might die, and that we don't actually want Perl to obey that
 directive. Instead, Perl should set up errors in some accessible place
 for us to check at our convenience.
@@ -102,11 +102,11 @@ There's actually no onus on the Perl programmer to go and look for those
 errors, nor to handle them meaningfully. Consequently, the die-on-error
 design decision, which was intended to provoke thoughtful error handling
 (or complete program termination, in the case where we aren't using an
-`eval'), serves only to place a strange interface burden upon all
+`eval`), serves only to place a strange interface burden upon all
 callers: namely, "You must call open_a_fh() in an eval even if you don't
 care about the errors it may throw."
 
-`dying' makes it easy to signal to Perl that `die' is a suggestion to be
+`dying` makes it easy to signal to Perl that `die` is a suggestion to be
 ignored. The above example can simply be changed like so:
 
 ```perl
@@ -122,7 +122,7 @@ sub choose_a_log_fh {
 }
 ```
 
-If you want to check whether a death occured, you may use `died':
+If you want to check whether a death occured, you may use `died`:
 
 ```perl
 sub choose_a_log_fh {
@@ -140,13 +140,13 @@ sub choose_a_log_fh {
 
 POLICY ON DYING
 ===============
-This module provides two related policies for handling `die': reporting,
-and de-escalation. In both cases, any call to `die' while this module is
-in effect will result in the `died' function being populated with
+This module provides two related policies for handling `die`: reporting,
+and de-escalation. In both cases, any call to `die` while this module is
+in effect will result in the `died` function being populated with
 meaningful data regarding exceptions.
 
 Note that selecting either the reporting or de-escalation policy will
-make the `died' function available to your current call stack and all
+make the `died` function available to your current call stack and all
 those that are higher, and will report on or de-escalate deaths within
 your current call stack and all those that are lower.
 
@@ -158,11 +158,11 @@ The most basic use of this module is to simply say
 use dying;
 ```
 
-With `use dying;' in effect, calls to `die' actually will die in the
-standard fashion. This means you will need to `eval' any code which may
+With `use dying;` in effect, calls to `die` actually will die in the
+standard fashion. This means you will need to `eval` any code which may
 die, just as you normally would.
 
-The added behavior from `use dying;' is that assertion objects are
+The added behavior from `use dying;` is that assertion objects are
 stored in an antilocal location, and may be later retrieved and
 acknowledged or rethrown. Additionally, if your program terminates with
 any unacknowledged exceptions, they will present their full details to
@@ -176,25 +176,25 @@ You may de-escalate assertions from deaths to warnings by simply adding
 no dying;
 ```
 
-to your program. When `dying' is not in effect, your Perl program will
-not be allowed to `die'. Instead, deaths are reported in the same
+to your program. When `dying` is not in effect, your Perl program will
+not be allowed to `die`. Instead, deaths are reported in the same
 fashion as the reporting policy, and your program's execution continues.
 
-Note that the function which attempted to `die' will return undef to its
+Note that the function which attempted to `die` will return undef to its
 caller.
 
 SCOPING
 =======
 Unlike other pragmata, which are lexically scoped simply to the current
-lexical level, `dying' affects your current lexical scope and all lower
+lexical level, `dying` affects your current lexical scope and all lower
 scopes. This means that once you select a policy, either by importing or
-unimporting `dying', any attempt to `die' in your current scope or any
+unimporting `dying`, any attempt to `die` in your current scope or any
 subroutine you call within that scope will result in your selected
 policy being enforced.
 
-As previously noted, `died' gets exported all the way back up your call
-stack. Ideally, the `died' that gets exported all the way up would be
-localised only to the environment that imports or unimports `dying'.
+As previously noted, `died` gets exported all the way back up your call
+stack. Ideally, the `died` that gets exported all the way up would be
+localised only to the environment that imports or unimports `dying`.
 That is, given this code:
 
     1    #!/usr/bin/env perl
@@ -251,11 +251,11 @@ Line 20 has three effects:
   Somewhere::safe_method_call, Hither::quack_safely, and main. No
   other call frames may access died() - even within the namespaces of
   Somewhere::, Hither::, and main::. This surprising bit of scoping is
-  accomplished via `antilocal', see which.
+  accomplished via `antilocal`, see which.
 
 EXPORTS
 =======
-* `died'
+* `died`
 
   Answers the age-old question, "Did the code that I just trapped
   die?". In scalar context, returns the count of assertions that have
