@@ -8,65 +8,65 @@ use Data::Dumper;
 our %vars;
 our %exported;
 sub import {
-	my ($class, @symbols) = @_;
+  my ($class, @symbols) = @_;
 
-	$^H{antilocals} = join(':', map { ($_, 1) } @symbols);
+  $^H{antilocals} = join(':', map { ($_, 1) } @symbols);
 
-	foreach (@symbols) {
-		$vars{$_} ||= $class->default_for_symbol($_);
-	}
+  foreach (@symbols) {
+    $vars{$_} ||= $class->default_for_symbol($_);
+  }
 
-	{
-		my $i = 0;
-		while (my $callpkg = caller($i++)) {
-			next if $exported{$callpkg}++;
-			_export($callpkg);
-		}
-	}
+  {
+    my $i = 0;
+    while (my $callpkg = caller($i++)) {
+      next if $exported{$callpkg}++;
+      _export($callpkg);
+    }
+  }
 }
 
 sub _export {
-	my ($callpkg) = @_;
-	no strict 'refs';
-	no warnings 'redefine';
-	*{"$callpkg\::antilocal"} = \&antilocal;
+  my ($callpkg) = @_;
+  no strict 'refs';
+  no warnings 'redefine';
+  *{"$callpkg\::antilocal"} = \&antilocal;
 }
 
 sub default_for_symbol {
-	my ($class, $symbol) = @_;
-	(my $type) = $symbol =~ m{^([@%])};
-	CORE::die "can't figure a type for symbol: $symbol!" unless $type;
-	return +{
-		'@' => [],
-		'%' => +{},
-	}->{$type};
+  my ($class, $symbol) = @_;
+  (my $type) = $symbol =~ m{^([@%])};
+  CORE::die "can't figure a type for symbol: $symbol!" unless $type;
+  return +{
+    '@' => [],
+    '%' => +{},
+  }->{$type};
 }
 
 sub unimport {
-	my ($class, @symbols) = @_;
+  my ($class, @symbols) = @_;
 
-	$^H{antilocals} =~ s{$_:1}{$_:0} foreach @symbols;
+  $^H{antilocals} =~ s{$_:1}{$_:0} foreach @symbols;
 }
 
 my %deeper_hinthash;
 sub antilocal {
-	my ($symbol) = @_;
+  my ($symbol) = @_;
 
-	my $hinthash = (caller(0))[10];
-	my $callsub = (caller(1))[3];
+  my $hinthash = (caller(0))[10];
+  my $callsub = (caller(1))[3];
 
-	if (! defined $hinthash) {
-		$hinthash = $deeper_hinthash{$callsub || ''};
-		return () if ! defined $hinthash;
-	} else {
-		$deeper_hinthash{''} = $hinthash;
-		my $i = 0;
-		while (my @ci = caller($i++)) {
-			$deeper_hinthash{$ci[3]} = $hinthash if ! exists $ci[10]{antilocal};
-		}
-	}
-	my (%active) = split /:/, $hinthash->{antilocals};
-	return $active{$symbol} ? $vars{$symbol} : ();
+  if (! defined $hinthash) {
+    $hinthash = $deeper_hinthash{$callsub || ''};
+    return () if ! defined $hinthash;
+  } else {
+    $deeper_hinthash{''} = $hinthash;
+    my $i = 0;
+    while (my @ci = caller($i++)) {
+      $deeper_hinthash{$ci[3]} = $hinthash if ! exists $ci[10]{antilocal};
+    }
+  }
+  my (%active) = split /:/, $hinthash->{antilocals};
+  return $active{$symbol} ? $vars{$symbol} : ();
 }
 
 1;
@@ -95,7 +95,7 @@ call stack may access. antilocal.pm provides that.
 
   Somewhere::Else->do_something();
   my $stashed = antilocal('%stashed');  # go find the antilocal variable named '%stashed'
-	while (my ($key, $value) = each %$stashed) {
+  while (my ($key, $value) = each %$stashed) {
     print "$key => $value\n";
   }
 
@@ -108,17 +108,17 @@ call stack may access. antilocal.pm provides that.
     use warnings;
 
     sub do_something {
-			my ($class) = @_;
+      my ($class) = @_;
       $class->prepare;
     }
 
     sub prepare {
-			my ($class) = @_;
+      my ($class) = @_;
       $class->validate;
     }
 
     sub validate {
-			my ($class) = @_;
+      my ($class) = @_;
 
       use antilocal '%stashed';
       my $stashed = antilocal('%stashed');
