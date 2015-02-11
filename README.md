@@ -197,15 +197,18 @@ stack. Ideally, the `died` that gets exported all the way up would be
 localised only to the environment that imports or unimports `dying`.
 That is, given this code:
 
+```perl
     1    #!/usr/bin/env perl
     2
     3    use Hither;
     4
     5    Hither::quack_safely();
     6
+```
 
 Nothing exciting yet. We've loaded a module and called a function.
 
+```perl
     7    package Hither;
     8
     9    use Somewhere;
@@ -215,9 +218,11 @@ Nothing exciting yet. We've loaded a module and called a function.
    13        $jail->safe_method_call('quack');
    14    }
    15
+```
 
 We've created an object and called a method on it; still tame.
 
+```perl
    16    package Somewhere;
    17
    18    sub safe_method_call {
@@ -228,6 +233,7 @@ We've created an object and called a method on it; still tame.
    23    }
    24
    25    sub quack { die 'quack' }
+```
 
 And here's our safe_method_call. It simply disables dying and
 dispatches the requested method.
